@@ -78,3 +78,82 @@ coverage_fraction <- samples |>
 coverage_fraction
 ```
 
+```{r}
+#| cache: true
+#| message: false
+
+# 1. Compute the true population mean
+truth <- shaming |> 
+  summarize(mean_age = mean(age, na.rm = TRUE)) |> 
+  pull(mean_age)
+
+# 2. Set seed for reproducibility
+set.seed(10)
+
+# 3. Build a tibble of 1,000 biased samples
+biased_samples <- map_dfr(1:1000, function(id) {
+  shaming |> 
+    mutate(sampling_weight = if_else(age > 40, 3, 1)) |> 
+    slice_sample(n = 50, weight_by = sampling_weight) |> 
+    summarize(
+      sample_mean = mean(age, na.rm = TRUE),
+      sample_se = sd(age, na.rm = TRUE) / sqrt(n())
+    ) |> 
+    mutate(
+      replicate = id,
+      lower = sample_mean - 1.96 * sample_se,
+      upper = sample_mean + 1.96 * sample_se
+    )
+})
+```
+
+```{r}
+#| message: false
+
+# 1. Compute the true population mean
+truth <- shaming |> 
+  summarize(mean_age = mean(age, na.rm = TRUE)) |> 
+  pull(mean_age)
+
+# 2. Set seed for reproducibility
+set.seed(10)
+
+# 3. Build a tibble of 1,000 biased samples
+biased_samples <- map_dfr(1:1000, function(id) {
+  shaming |> 
+    mutate(sampling_weight = if_else(age > 40, 3, 1)) |> 
+    slice_sample(n = 50, weight_by = sampling_weight) |> 
+    summarize(
+      sample_mean = mean(age, na.rm = TRUE),
+      sample_se = sd(age, na.rm = TRUE) / sqrt(n())
+    ) |> 
+    mutate(
+      replicate = id,
+      lower = sample_mean - 1.96 * sample_se,
+      upper = sample_mean + 1.96 * sample_se
+    )
+})
+
+# 4. Compute the average of the 1,000 biased sample means
+avg_biased_mean <- mean(biased_samples$sample_mean)
+
+# 5. Plot the density curve of biased sample means
+ggplot(biased_samples, aes(x = sample_mean)) +
+  geom_density(fill = "royalblue", alpha = 0.3, color = "royalblue", linewidth = 1) +
+  geom_vline(xintercept = truth, color = "red", linetype = "dashed", linewidth = 1) +
+  geom_vline(xintercept = avg_biased_mean, color = "black", linetype = "solid", linewidth = 1) +
+  labs(
+    title = "Distribution of Sample Means from Biased Sampling",
+    subtitle = "The average sample mean (black line) systematically overestimates the population truth (red dashed line).",
+    x = "Sample Mean Age (Years)",
+    y = "Density",
+    caption = "Source: shaming dataset from primer.data package"
+  ) +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(face = "bold", size = 14),
+    plot.subtitle = element_text(color = "grey35", size = 10)
+  )
+```
+
+
