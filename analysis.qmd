@@ -1,5 +1,80 @@
 ---
 title: "Sampling"
 format: html
+execute:
+  echo: false
 ---
+
+```{r}
+#| message: false
+library(tidyverse)
+library(primer.data)
+```
+
+```{r}
+shaming
+```
+
+```{r}
+#| cache: true
+#| message: false
+
+# 1. Compute the true population mean
+truth <- shaming |> 
+  summarize(mean_age = mean(age, na.rm = TRUE)) |> 
+  pull(mean_age)
+
+# 2. Set seed for reproducibility
+set.seed(10)
+
+# 3. Build a tibble of 1,000 samples
+samples <- map_dfr(1:1000, function(id) {
+  shaming |> 
+    slice_sample(n = 50) |> 
+    summarize(
+      sample_mean = mean(age, na.rm = TRUE),
+      sample_se = sd(age, na.rm = TRUE) / sqrt(n())
+    ) |> 
+    mutate(
+      replicate = id,
+      lower = sample_mean - 1.96 * sample_se,
+      upper = sample_mean + 1.96 * sample_se
+    )
+})
+# 4. Filter for the first 100 samples and determine if they cover the truth
+plot_data <- samples |> 
+  slice_head(n = 100) |> 
+  mutate(covers_truth = lower <= truth & upper >= truth)
+
+# 5. Create the publication-ready plot
+ggplot(plot_data, aes(x = sample_mean, y = replicate)) +
+  geom_errorbarh(aes(xmin = lower, xmax = upper, color = covers_truth), height = 0.5) +
+  geom_point(aes(color = covers_truth), size = 1.5) +
+  geom_vline(xintercept = truth, color = "red", linetype = "dashed", linewidth = 1) +
+  scale_color_manual(values = c("TRUE" = "darkgreen", "FALSE" = "darkorange")) +
+  labs(
+    title = "95% Confidence Intervals for 100 Random Samples",
+    subtitle = "About 95% of the intervals are expected to catch the true population mean age (red dashed line).",
+    x = "Voter Age (Years)",
+    y = "Sample Replicate (1 to 100)",
+    caption = "Source: shaming dataset from primer.data package",
+    color = "Covers Truth"
+  ) +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(face = "bold", size = 14),
+    plot.subtitle = element_text(color = "grey35", size = 10),
+    legend.position = "bottom"
+  )
+```
+
+```{r}
+# Compute the fraction of the 1,000 intervals that contain the true population mean
+coverage_fraction <- samples |> 
+  summarize(fraction_covering = mean(lower <= truth & upper >= truth)) |> 
+  pull(fraction_covering)
+
+# Print the fraction
+coverage_fraction
+```
 
